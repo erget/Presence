@@ -28,8 +28,9 @@ class Product(CODA_Aware):
         manifest_file = self.get("xfdumanifest.xml")
         with open(manifest_file) as manifest:
             manifest_dom = parseString(manifest.read())
-        self.files = [x.attributes.get("href").nodeValue[2:] for x in
+        files = [x.attributes.get("href").nodeValue for x in
                       manifest_dom.getElementsByTagName("fileLocation")]
+        self.files = [f if not f.startswith("./") else f[2:] for f in files]
 
     def get(self, filename):
         """If needed, retrieve, and return absolute path to file."""
