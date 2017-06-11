@@ -23,7 +23,7 @@ def geom_to_filter_string(bbox):
 class Query(CODA_Aware):
     """Find CODA products based on search criteria."""
 
-    def __init__(self, time_start, time_end, intersect_geom, prod_type):
+    def __init__(self, prod_type, time_start, time_end, intersect_geom):
         """
         Construct OData REST query for CODA to find matching products.
 
@@ -39,14 +39,9 @@ class Query(CODA_Aware):
         self.time_end = time_end
         self.prod_type = prod_type
         self.geom_filter = intersect_geom
-        if not self._prod_type_is_valid():
-            raise ()
         self.uuids = []
 
-    def _prod_type_is_valid(self):
-        return True
-
-    def get_uuids(self):
+    def get_uuids(self, limit=None):
         product_filter = "substringof('" + self.prod_type + "',Name)"
 
         ge_filter = datetime_to_filter_string(self.time_start, "ge")
@@ -62,21 +57,30 @@ class Query(CODA_Aware):
         if geom_filter:
             geom_filter = " and " + geom_filter
 
-        query = "Products?&$filter=" + product_filter + time_filter\
-                + geom_filter + "&$format=json"
-        print(query)
-        found_results = [product["Id"] for product in json.loads(self.query(
-            query).text)["d"]["results"]]
-        return found_results
-    # iterate over results and return when empty becaues of query limits
+        filters = product_filter + time_filter + geom_filter
+
+        results = []
+        found_results = [True]
+        skip = 0
+        # We iterate because API only returns limited number of UUIDs
+        while found_results:
+            query = "Products?$skip={}&$filter={}&$format=json".format(
+                skip, filters)
+            json_results = json.loads(self.query(query).text)
+            try:
+                found_results = [product["Id"] for product in json_results[
+                    "d"]["results"]]
+            except KeyError:
+                found_results = []
+            results += found_results
+            skip += len(found_results)
+            if limit is not None:
+                if skip > limit:
+                    found_results = []
+        return results
 
 
 if __name__ == '__main__':
-    q1 = Query(datetime(2017, 2, 2, 1), datetime(2017, 2, 2, 2), "foo", "SR_2_WAT")
-    q2 = Query(datetime(2017, 2, 1), datetime(2017, 2, 2), "SR_2_WAT")
-    print(len(q1.get_uuids()))
-    print(len(q2.get_uuids()))
-
-    q1 = Query(datetime(2017, 2, 2, 1), datetime(2017, 2, 2, 2), None, "SR_2_WAT")
-    q1 = Query(datetime(2017, 2, 2, 1), datetime(2017, 2, 2, 2), polysad, "SR_2_WAT")
-    print(len(q1.get_uuids()))
+    q = Query("SR_2_WAT", datetime(2017, 2, 1), datetime(2017, 2, 2), None)
+    q = Query("OL_1", datetime(2017, 2, 1), datetime(2017, 2, 3), None)
+    q.get_uuids()
