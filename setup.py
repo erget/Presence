@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name="Presence",
+    name="codaPresence",
     version="0.1.0",
-    packages=["presence"],
+    packages=["codaPresence"],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
